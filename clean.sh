@@ -1,7 +1,7 @@
 #!/bin/bash
 apt remove --purge -y puppet puppet-common puppetdb puppetdb-terminus puppetmaster puppetmaster-common postgresql-client-9.4 postgresql-client-common postgresql-common postgresql-contrib-9.4 libruby libruby2.3:amd64 ruby ruby-all-dev ruby-augeas ruby-deep-merge ruby-did-you-mean ruby-json ruby-minitest ruby-net-telnet ruby-power-assert ruby-shadow ruby-test-unit ruby2.3 ruby2.3-dev:amd64 rubygems-integration
 apt -y autoremove
-if [ -d "/.git" ]; then rm -r /.git; fi
+if [ -d "/git" ]; then rm -r /git; fi
 if [ -d "/.gem" ]; then rm -r /.gem; fi
 if [ -d "/root/configs" ]; then rm -r /root/configs; fi
 if [ -d "/root/.gem" ]; then rm -r /root/.gem; fi
