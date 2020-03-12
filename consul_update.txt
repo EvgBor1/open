@@ -1,0 +1,151 @@
+How to
+I. Create ssl certificates for consul
+Follow instructions on https://www.digitalocean.com/community/tutorials/how-to-secure-consul-with-tls-encryption-on-ubuntu-14-04
+Short steps from history:
+
+mkdir CA
+chmod 0700 CA
+cd CA
+echo “000a” > serial
+touch certindex
+openssl req -x509 -newkey rsa:2048 -days 3650 -nodes -out ca.cert
+use “ConsulCA” Common Name here
+openssl req -newkey rsa:1024 -nodes -out consul.csr -keyout consul.key
+use “*.node.consul” Common Name here
+vim myca.conf
+paste this content here:
+default_ca = myca
+
+[ myca ]
+unique_subject = no
+new_certs_dir = .
+certificate = ca.cert
+database = certindex
+private_key = privkey.pem
+serial = serial
+default_days = 3650
+default_md = sha1
+policy = myca_policy
+x509_extensions = myca_extensions
+
+[ myca_policy ]
+commonName = supplied
+stateOrProvinceName = supplied
+countryName = supplied
+emailAddress = optional
+organizationName = supplied
+organizationalUnitName = optional
+
+[ myca_extensions ]
+basicConstraints = CA:false
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
+keyUsage = digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth,clientAuth
+openssl ca -batch -config myca.conf -notext -in consul.csr -out consul.cert
+you need these files
+ca.cert
+consul.cert
+consul.key
+** Alternatively you can follow this instructions https://www.consul.io/docs/guides/creating-certificates.html
+
+II. Encrypt secrets for kubernetes
+Go to the directory with kubernetes eyaml encryption keys:
+e.g.
+cd /etc/puppet/
+Use these commands:
+base64 -w 0 /<path_to_dir_from_I_step>/ca.cert | eyaml encrypt --stdin
+base64 -w 0 /<path_to_dir_from_I_step>/consul.cert | eyaml encrypt --stdin
+base64 -w 0 /<path_to_dir_from_I_step>/consul.key | eyaml encrypt --stdin
+Paste encrypted values from previous step to kubernetes secrets repo:
+ConsulCa:  <encrypted_value>
+ConsulCert:  <encrypted_value>
+ConsulCertKey:  <encrypted_value>
+Generate encryption key for consul agents:
+use this comman on any host with consul
+consul keygen
+Encrypt consul encryption key from previous step:
+eyaml encrypt -p
+Paste encrypted value from previous step to kubernetes secrets repo:
+ConsulEncryptionKey:  <encrypted_value>
+Vladimir Kurlenya
+(2 years ago)
+III. Upgrade consul on kubernetes
+Manually remove consul from cluster
+helm delete consul --purge
+Upgrade consul chart with version 0.1.0-ci.56 or newer
+chart: consul
+version: 0.1.0-ci.56
+deployStrategy: ReInstall
+order: 5
+values:
+  name: consul
+  fullName: consul
+  cluster: '{{ .Cluster.Name }}'
+  tags: '["{{ .Cluster.Name }}"]'
+  join: [{{ .Secrets.ConsulJoin }}]
+  datacenter: {{ .Secrets.ConsulDc }}
+  ca_pem: {{ .Secrets.ConsulCa }}
+  consul_pem: {{ .Secrets.ConsulCert }}
+  consul_key_pem: {{ .Secrets.ConsulCertKey }}
+  ###gossip_encryption_key: {{ .Secrets.ConsulEncryptionKey }}
+  verify: false
+  ImageTag: 1.1.0
+  bootstrap: 2
+  updateStrategy: RollingUpdate
+Warning! USE verify: false and DO NOT USE gossip_encryption_key on this step
+
+Vladimir Kurlenya
+(2 years ago)
+IV. Enable consul ssl for all “under puppet” hosts
+** The best way to do it on puppet-master host**
+
+Create the workcopy of puppet configs
+mkdir <workcopy>
+cd <workcopy>
+git clone /git/configs.git ./
+Add certs to eayml file in <workcopy>
+open /hiera/common.yaml in edit mode
+cd /etc/puppet/
+eyaml edit <workcopy>/hiera/common.yaml
+and paste certs
+consul_ca: >
+    DEC::PKCS7[-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----
+]!
+consul_cert: >
+    DEC::PKCS7[-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----
+]!
+consul_key: >
+    DEC::PKCS7[-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----
+]!
+consul_ssl_verify: false
+Warning! consul_ssl_verify must have false value at this step
+
+push to configs repo
+cd <workcopy>
+git add *
+git commit -m "Add consul ssl certs"
+git push origin master
+Wait while consul certs deployed to all “under puppet” hosts
+Vladimir Kurlenya
+(2 years ago)
+reply
+VI. Enable consul ssl verify
+On kubernetes: Update consul helm release with “verify: true” value
+On puppet: Paste “consul_ssl_verify: true” to <puppet_configs>/hiera/common.yaml
+VII. Enable consul encryption
+On kubernetes: Update consul helm release with “gossip_encryption_key: {{ .Secrets.ConsulEncryptionKey }}” value
+On puppet: Add “consul_encryption: <encrypted_value>” to <puppet_configs>/hiera/common.yaml, where <encrypted_value> is consul encryption key from “II.” step. Be sure you use Non-base64 consul encryption key here.
+Vladimir Kurlenya
+(2 years ago)
+VIII. Please, check consul working capacity on each step!!!
+Victor Kobzarev
+(4 months ago)
+ConsulEncryptionKey:  <encrypted_value> 
+must be base64 encoded
