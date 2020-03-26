@@ -1,0 +1,3 @@
+kubectl delete ns glusterfs --force --grace-period=0; \
+vgscan --cache && vgremove $( pvs | grep vg_ | awk '{print $2}') --force && pvremove /dev/xvdb2; \
+rm -rf /etc/glusterfs; rm -rf /var/lib/heketi; rm -rf /var/log/glusterfs; rm -rf /var/lib/glusterd; rm -rf /var/lib/misc/glusterfsd
