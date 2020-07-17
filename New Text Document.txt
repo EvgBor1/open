@@ -1,1 +1,14 @@
-ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDGLMG7Gc2b0vdyX5e/ftbJpwikLf974uCJoc7oBrxu5CNFd6YKdEYNkhefm9jIvA8Ezc7oa6Je0RmG0QQy/a8dpXyJEvlh3YJAS+6sZbeW+1rsGzZB8bMAzZ8dcz1vtbZSuK8HFlzvoC1gJWm0jX4sW4UTsAhwvbeOa3ByS82Xq6rxDCXgFtePfFaTPtZGSS+oXJBEu/ZoXNo2eHq9hb28be41PXiFyLcR/4M9pHTWXAyhpywmqLvR2SmlOSTv+eT3xAU6bGqsiBDuukNv46BAy1uOtYAzQPhZR2g5tInfBuj0Np83u8tk6mJOVIPS7UPvOHfX9R9h/cV8yrvps7z91B2VZV2UHLCGBfUAZheo73JEfJkPfvVcEcg81oJl5fcHLGaAsEFSwXUQhMXaxa37KFM4gSv5ya6UfwMTlnHZa/39vnLgi7MyT0xGdckFIKKD7VWZLzFuZu6hwevxOLcJsYiw1gCv/QpXYqB5Tm1xlALfz58pksuUDy0kAosaxDLiEOX2ZKWj1N4Vzx9j/A6dtQDQWf2QsAf3FkUVgkrj1wBh/3hEhMgsM63NV/lqCD0eDBNWaVLsApAApquZAcWhI+2aKIrznaFZF9D2tmw15Q38PVX9gpbY2tOqqilvsdqoq0xxwE06jAg1vd93+NWkPvczdIJf20uYjFmAfOsQgw==
+apt-add-repository ppa:ansible/ansible
+apt-get update
+apt-get install -y ansible
+git clone git@gitlab.tpondemand.net:infrastructure/kube-provisioner.git --depth 1 -b storageclass --recursive
+cd kube-provisioner
+cat <<EOF > inventory/inventory.ini
+[tag_roles_kube]
+host1 ansible_host=10.31.0.21 ip=10.31.0.21
+host2 ansible_host=10.31.0.22 ip=10.31.0.22
+host3 ansible_host=10.31.0.23 ip=10.31.0.23
+
+EOF
+export ANSIBLE_CONFIG="./ansible.cfg"
+ansible-playbook runme.yaml -v -t install-tools,kube-configure,storageclass -b -u root -i inventory/inventory.ini --private-key=/root/.ssh/id_rsa
